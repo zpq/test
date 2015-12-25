@@ -1,10 +1,10 @@
 <?php
 
 /**
- * 抓取论坛的发帖以及跟帖
+ * 抓取V2EX论坛的发帖以及跟帖
  */
 $postIds = array();//已经抓取过的帖子id
-$count = 0;//本次总抓取数 应不大于500
+$count = 0;//本次总抓取数 应小于1000
 $i = 0;//有效抓取数
 $postNums = 5;
 $results = array();//存放抓取结果
@@ -14,12 +14,11 @@ $days = round(($endDate - $startDate) / 86400);
 $minSide = $days * 500;
 $maxSide = $minSide + 499;
 
-//每天从连续的500个帖子里面抓取不重复的5个帖子
-// for($i = 0; $i < $postNums; $i++) {
-while($i < $postNums && $count < 500) {    
+//每天从连续的500个帖子里面抓取最多5个不重复的帖子
+while($i < $postNums && $count < 1000) {   
+    ++$count; 
     $id = rand($minSide, $maxSide);
     if(in_array($id, $postIds)) {
-        ++$count;
         continue;
     }
 
@@ -80,8 +79,8 @@ while($i < $postNums && $count < 500) {
     if(isset($result['title']) && isset($result['child'])) {
         $results[] = $result;
         ++$i;
-    } else { //需要登录才能访问或者没有跟帖的情况下，本次抓取不算
-        ++$count;
+    } else { //需要登录才能访问或者没有跟帖的情况下，即为非有效抓取
+
     }
 
 }
@@ -91,16 +90,6 @@ function removeAt($data) {
     // $data = "@<a href='/member/dimlau'>dimlau</a>好酷的构思@<a href='/member/dimlau'>dddd</a>哈哈";
     $res = preg_replace('/@\<a.*?\>.*?\<\/a\>/', '', $data);
     return $res;
-}
-
-//随机选取不重复的帖子ID
-function selectPostId($postIds, $minSide, $maxSide) {
-    $id = rand($minSide, $maxSide);
-    if(in_array($id, $postIds)) {
-        selectPostId($postIds, $minSide, $maxSide);
-    } else {
-        return $id;
-    }
 }
 
 
