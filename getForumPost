@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * 抓取论坛的发帖以及跟帖
+ */
+$postIds = array();//已经抓取过的帖子id
+$count = 0;//本次总抓取数 应不大于500
+$i = 0;//有效抓取数
+$postNums = 5;
+$results = array();//存放抓取结果
+$startDate = strtotime("2015-12-25");
+$endDate = strtotime(date("Y-m-d"));
+$days = round(($endDate - $startDate) / 86400);
+$minSide = $days * 500;
+$maxSide = $minSide + 499;
+
+//每天从连续的500个帖子里面抓取不重复的5个帖子
+// for($i = 0; $i < $postNums; $i++) {
+while($i < $postNums && $count < 500) {    
+    $id = rand($minSide, $maxSide);
+    if(in_array($id, $postIds)) {
+        ++$count;
+        continue;
+    }
+
+    array_push($postIds, $id);
+    $url = "http://www.v2ex.com/t/$id";
+    echo $url."<br/>";
+
+    $res = '';
+    $result = array();
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_TIMEOUT, 100);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POST, 0);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    $res = curl_exec($ch);
+    curl_close($ch);
+
+    $result['userid'] = null;
+    $result['date'] = null;
+    $result['catid'] = '8';
+    $result['a'] = null;
+    $result['b'] = null;
+    $result['lastpost'] = null;
+
+    //抓取发帖标题
+    if(preg_match('/\<h1\>(.*)\<\/h1\>/', $res, $matches)) {
+        if(mb_detect_encoding($matches[1]) == 'UTF-8') {
+            $result['title'] = $matches[1];
+        } else {
+            $result['title'] = iconv(mb_detect_encoding($matches[1]), 'utf-8', $matches[1]);
+        }
+    } 
+
+    //抓取发帖内容
+    if(preg_match('/\<div class=\"topic_content\"\>([\s\S]*?)\<\/div\>/', $res, $matches)) {
+        if(mb_detect_encoding($matches[1]) == 'UTF-8') {
+            $result['message'] = $matches[1];
+        } else {
+            $result['message'] = iconv(mb_detect_encoding($matches[1]), 'utf-8', $matches[1]);
+        }
+    }
+
+    //抓取跟帖
+    if(preg_match_all('/\<div class=\"reply_content"\>([\s\S]*?)\<\/div\>/', $res, $matches)) {
+        $childs = $matches;
+        foreach($childs[1] as $key => $child) {
+            $result['child'][$key]['date'] = null;
+            $result['child'][$key]['userid'] = null;
+            if(mb_detect_encoding($child) == 'UTF-8') {
+                $result['child'][$key]['message'] = removeAt($child);
+            } else {
+                $result['child'][$key]['message'] = iconv(mb_detect_encoding(removeAt($child)), 'utf-8', removeAt($child));
+            }
+        }
+    }
+    
+    if(isset($result['title']) && isset($result['child'])) {
+        $results[] = $result;
+        ++$i;
+    } else { //需要登录才能访问或者没有跟帖的情况下，本次抓取不算
+        ++$count;
+    }
+
+}
+
+//去除‘@某用户’的内容
+function removeAt($data) {
+    // $data = "@<a href='/member/dimlau'>dimlau</a>好酷的构思@<a href='/member/dimlau'>dddd</a>哈哈";
+    $res = preg_replace('/@\<a.*?\>.*?\<\/a\>/', '', $data);
+    return $res;
+}
+
+//随机选取不重复的帖子ID
+function selectPostId($postIds, $minSide, $maxSide) {
+    $id = rand($minSide, $maxSide);
+    if(in_array($id, $postIds)) {
+        selectPostId($postIds, $minSide, $maxSide);
+    } else {
+        return $id;
+    }
+}
+
+
+print_r($results);die;
+
+
+?>
